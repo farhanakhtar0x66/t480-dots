@@ -1,0 +1,63 @@
+
+@-moz-document url-prefix("about:") {
+  :root {
+    color-scheme: dark !important;
+
+    --text-color: #e0e0e0 !important;
+    --color-accent-primary: #bdbdbd !important;
+    --color-accent-secondary: #a0a0a0 !important;
+
+    --background-color-canvas: #151515 !important;
+    --background-color-box: #1e1e1e !important;
+    --background-color-information: #242424 !important;
+
+    --border-color: #353535 !important;
+
+    --in-content-page-background: #151515 !important;
+    --in-content-page-color: #e0e0e0 !important;
+    --in-content-box-background: #1e1e1e !important;
+    --in-content-border-color: #353535 !important;
+
+    --in-content-primary-button-background: #353535 !important;
+    --in-content-primary-button-background-hover: #555555 !important;
+    --in-content-primary-button-text-color: #e0e0e0 !important;
+
+    --newtab-background-color: #151515 !important;
+    --newtab-background-color-secondary: #1e1e1e !important;
+    --newtab-text-primary-color: #e0e0e0 !important;
+    --newtab-text-secondary-color: #a0a0a0 !important;
+  }
+
+  html, body {
+    background-color: #151515 !important;
+    color: #e0e0e0 !important;
+  }
+
+  *, *::before, *::after {
+    border-radius: 0 !important;
+  }
+
+  ::selection {
+    background: #424242 !important;
+    color: #e0e0e0 !important;
+  }
+}
+
+
+/* Keep LibreWolf's own new-tab controls square and neutral. */
+@-moz-document url("about:newtab"), url("about:home") {
+  :root {
+    --focus-outline-color: #a0a0a0 !important;
+    --newtab-primary-action-background: #424242 !important;
+    --newtab-primary-action-background-hover: #555555 !important;
+    --newtab-button-focus-border: #a0a0a0 !important;
+    --input-search-border-radius: 0px !important;
+    --button-border-radius: 0px !important;
+  }
+  .logo-and-wordmark .logo { filter: grayscale(1) !important; }
+  .personalize-button, .search-wrapper, .search-handoff-button,
+  .search-inner-wrapper, .search-wrapper input {
+    border-radius: 0 !important;
+  }
+  .personalize-button { background-color: #353535 !important; color: #e0e0e0 !important; }
+}

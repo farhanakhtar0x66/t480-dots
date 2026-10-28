@@ -1,0 +1,40 @@
+#!/usr/bin/python3
+"""Adjust this laptop's backlight through the active elogind session."""
+from pathlib import Path
+import subprocess
+import sys
+
+
+def target_brightness(current, maximum, direction):
+    if maximum <= 0 or direction not in ('up', 'down'):
+        raise ValueError('expected a positive maximum and up/down direction')
+    step = max(1, (maximum + 19) // 20)
+    minimum = max(1, (maximum + 99) // 100)
+    return max(minimum, min(maximum, current + (step if direction == 'up' else -step)))
+
+
+def main():
+    if len(sys.argv) != 2 or sys.argv[1] not in ('up', 'down'):
+        print('Usage: t480-brightness up|down', file=sys.stderr)
+        return 2
+    device = Path('/sys/class/backlight/intel_backlight')
+    try:
+        current = int((device / 'brightness').read_text())
+        maximum = int((device / 'max_brightness').read_text())
+        target = target_brightness(current, maximum, sys.argv[1])
+        subprocess.run([
+            'busctl', '--system', 'call', 'org.freedesktop.login1',
+            '/org/freedesktop/login1/session/self', 'org.freedesktop.login1.Session',
+            'SetBrightness', 'ssu', 'backlight', device.name, str(target)
+        ], check=True)
+        percent = round(int((device / 'brightness').read_text()) * 100 / maximum)
+        subprocess.run(['qs', 'ipc', '-c', 't480', 'call', 'controls', 'showBrightness', str(percent)],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    except (OSError, ValueError, subprocess.CalledProcessError) as error:
+        print(f'Brightness unavailable: {error}', file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -1,0 +1,32 @@
+/* Monochrome surfaces, with square corners for the file manager. */
+window, dialog, .background { background-color: #151515; color: #e0e0e0; }
+view, .view, treeview, iconview { background-color: #0b0b0b; color: #e0e0e0; }
+headerbar, toolbar, menubar, .sidebar { background-color: #1e1e1e; color: #e0e0e0; }
+button, entry, combobox { background-image: none; background-color: #242424; color: #e0e0e0; border: 1px solid #353535; border-radius: 0; box-shadow: none; }
+button:hover { background-color: #353535; border-color: #555555; }
+button:checked, button:active, selection, .view:selected, treeview:selected { background-color: #424242; color: #e0e0e0; }
+separator { background-color: #353535; }
+menu, popover, headerbar, entry, button, notebook, .tab { border-radius: 0; }
+
+/* Override Adwaita's blue selections in PCManFM's places and path bars. */
+@define-color theme_selected_bg_color #424242;
+@define-color theme_selected_fg_color #e0e0e0;
+@define-color theme_unfocused_selected_bg_color #353535;
+@define-color theme_unfocused_selected_fg_color #e0e0e0;
+@define-color accent_color #bdbdbd;
+@define-color accent_bg_color #424242;
+.path-bar button:checked, .path-bar button:active,
+.pathbar button:checked, .pathbar button:active,
+.linked > button:checked, .linked > button:active,
+.places-sidebar row:selected, .places-sidebar row:selected label,
+.sidebar row:selected, .sidebar row:selected label,
+treeview.view:selected, treeview.view:selected:focus,
+iconview.view:selected, iconview.view:selected:focus,
+.view:selected, .view:selected:focus {
+  background-image: none;
+  background-color: #424242;
+  color: #e0e0e0;
+  border-color: #555555;
+  box-shadow: none;
+  border-radius: 0;
+}

@@ -1,0 +1,39 @@
+#!/bin/sh
+set -u
+PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
+export PATH
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+    exec dbus-run-session -- "$0"
+fi
+# Apply touchpad-only input preferences once per X session.
+t480-touchpad
+log_dir=${XDG_RUNTIME_DIR:-"$HOME/.cache/t480"}
+mkdir -p "$log_dir"
+gentoo-pipewire-launcher >"$log_dir/t480-audio.log" 2>&1 &
+shell_pid=
+cleanup() {
+    if [ -n "$shell_pid" ]; then
+        kill "$shell_pid" 2>/dev/null || true
+        wait "$shell_pid" 2>/dev/null || true
+        shell_pid=
+    fi
+}
+finish() {
+    cleanup
+    t480-clipboard stop >/dev/null 2>&1 || true
+}
+trap finish EXIT
+trap 'exit 0' HUP INT TERM
+while :; do
+    # Re-read sizing before starting dwm and Quickshell on every reload.
+    xrdb -merge "$HOME/.config/t480/Xresources"
+    . "$HOME/.config/t480/scaling.sh"
+    xsetroot -solid '#0b0b0b'
+    qs -n -c t480 >"$log_dir/t480-quickshell.log" 2>&1 &
+    shell_pid=$!
+    dwm
+    result=$?
+    cleanup
+    # Only the explicit reload request loops; quit and failures end normally.
+    [ "$result" -eq 42 ] || exit "$result"
+done

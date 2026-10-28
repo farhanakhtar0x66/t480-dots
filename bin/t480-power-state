@@ -1,0 +1,32 @@
+#!/usr/bin/env python3
+"""Show the active battery, switching to a charged battery when needed."""
+import json
+from pathlib import Path
+
+
+def read_power(root=Path('/sys/class/power_supply')):
+    batteries=[]
+    for path in sorted(root.glob('BAT*')):
+        try:
+            percent=max(0,min(100,int((path/'capacity').read_text())))
+        except (OSError,ValueError):
+            try:
+                now=int((path/'energy_now').read_text()); full=int((path/'energy_full').read_text())
+                if full <= 0: continue
+                percent=max(0,min(100,round(now*100/full)))
+            except (OSError,ValueError):
+                continue
+        try: status=(path/'status').read_text().strip()
+        except OSError: status=''
+        batteries.append((status,percent))
+    if not batteries:
+        return {'percent':None,'charging':False}
+    candidates=[b for b in batteries if b[0]=='Discharging' and b[1]>0]
+    if not candidates: candidates=[b for b in batteries if b[0]=='Charging' and b[1]>0]
+    if not candidates: candidates=[b for b in batteries if b[1]>0]
+    selected=(candidates or batteries)[0]
+    return {'percent':selected[1], 'charging':selected[0]=='Charging'}
+
+
+if __name__=='__main__':
+    print(json.dumps(read_power()))

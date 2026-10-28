@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+. "$HOME/.config/t480/scaling.sh"
+log_dir=${XDG_RUNTIME_DIR:-"$HOME/.cache/t480"}
+mkdir -p "$log_dir"
+# Startup normally owns the single shell instance. Recover if it was closed.
+if ! qs ipc -c t480 call controls toggle 2>/dev/null; then
+    qs -n -c t480 >"$log_dir/t480-quickshell.log" 2>&1 &
+    for attempt in 1 2 3 4 5; do
+        sleep 1
+        qs ipc -c t480 call controls openMenu 2>/dev/null && exit 0
+    done
+    printf 'Quickshell could not start; see %s/t480-quickshell.log\n' "$log_dir" >&2
+    exit 1
+fi

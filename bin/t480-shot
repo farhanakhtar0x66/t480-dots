@@ -1,0 +1,4 @@
+#!/bin/sh
+# Empty output on cancellation deliberately leaves the clipboard unchanged.
+set -u
+t480-screenshot "${1:-select}" | t480-clipboard capture

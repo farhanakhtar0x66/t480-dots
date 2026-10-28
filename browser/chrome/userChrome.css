@@ -1,0 +1,189 @@
+:root {
+  color-scheme: dark !important;
+
+  /* Charcoal palette */
+  --t480-bg:      #151515;
+  --t480-surface: #1e1e1e;
+  --t480-hover:   #242424;
+  --t480-active:  #353535;
+  --t480-border:  #353535;
+  --t480-text:    #e0e0e0;
+  --t480-muted:   #a0a0a0;
+
+  /* Native browser theme */
+  --lwt-accent-color: #151515 !important;
+  --lwt-text-color: #e0e0e0 !important;
+
+  --toolbar-bgcolor: #151515 !important;
+  --toolbar-color: #e0e0e0 !important;
+
+  --sidebar-background-color: #151515 !important;
+  --sidebar-text-color: #e0e0e0 !important;
+  --sidebar-border-color: #353535 !important;
+
+  --tab-selected-bgcolor: #353535 !important;
+  --tab-selected-textcolor: #e0e0e0 !important;
+
+  --lwt-toolbar-field-background-color: #1e1e1e !important;
+  --lwt-toolbar-field-color: #e0e0e0 !important;
+  --toolbar-field-focus-background-color: #242424 !important;
+  --toolbar-field-focus-color: #e0e0e0 !important;
+}
+
+/* Native sidebar */
+
+#sidebar-main,
+#sidebar-container,
+#vertical-tabs {
+  background-color: #151515 !important;
+  color: #e0e0e0 !important;
+  box-shadow: none !important;
+}
+
+/* Vertical tabs */
+
+#tabbrowser-tabs[orient="vertical"] {
+  --tab-min-height: 24px !important;
+  --tab-margin-block: 2px !important;
+  --tab-border-radius: 0px !important;
+}
+
+/* Inactive tab */
+
+#tabbrowser-tabs[orient="vertical"]
+.tabbrowser-tab:not([selected]):not(:hover)
+.tab-background {
+  background: transparent !important;
+}
+
+/* Hover */
+
+#tabbrowser-tabs[orient="vertical"]
+.tabbrowser-tab:not([selected]):hover
+.tab-background {
+  background: #242424 !important;
+}
+
+/* Active tab */
+
+#tabbrowser-tabs[orient="vertical"]
+.tabbrowser-tab[selected]
+.tab-background {
+  background: #353535 !important;
+  border: 1px solid #555555 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+/* Tab text */
+
+#tabbrowser-tabs[orient="vertical"]
+.tabbrowser-tab {
+  color: #d0d0d0 !important;
+}
+
+#tabbrowser-tabs[orient="vertical"]
+.tabbrowser-tab[selected] {
+  color: #e0e0e0 !important;
+}
+
+/* New tab button */
+
+#vertical-tabs-newtab-button {
+  color: #a0a0a0 !important;
+  border-radius: 0 !important;
+}
+
+#vertical-tabs-newtab-button:hover {
+  background: #242424 !important;
+  color: #e0e0e0 !important;
+}
+
+/* Sidebar controls */
+
+#sidebar-main toolbarbutton:hover {
+  background-color: #242424 !important;
+}
+
+#sidebar-main .buttons-wrapper {
+  background: #151515 !important;
+}
+
+/* Browser toolbar */
+
+#navigator-toolbox,
+#nav-bar {
+  background: #151515 !important;
+  color: #e0e0e0 !important;
+  box-shadow: none !important;
+}
+
+/* Address bar */
+
+#urlbar-background {
+  background: #1e1e1e !important;
+  border: 1px solid #353535 !important;
+  box-shadow: none !important;
+}
+
+#urlbar[focused] #urlbar-background {
+  border-color: #bdbdbd !important;
+}
+
+/* No rounded chrome */
+
+#urlbar-background,
+.tab-background,
+#vertical-tabs-newtab-button {
+  border-radius: 0 !important;
+}
+
+/* No sidebar divider shadow */
+
+#sidebar-launcher-splitter {
+  box-shadow: none !important;
+  border-color: #353535 !important;
+}
+
+
+/* Firefox's newer urlbar styles use separate input and background radii. */
+:root {
+  --focus-outline-color: #a0a0a0 !important;
+  --toolbar-field-border-color-focus: #a0a0a0 !important;
+  --urlbar-border-radius: 0px !important;
+  --urlbarview-border-radius: 0px !important;
+  --urlbar-background-border-radius: 0px !important;
+  --urlbar-background-border-top-radius-open: 0px !important;
+  --button-border-radius: 0px !important;
+  --panel-border-radius: 0px !important;
+  --popup-border-radius: 0px !important;
+}
+#urlbar, #searchbar, #urlbar-background, #urlbar-input-container,
+.urlbar-input-container, #urlbar-searchmode-switcher,
+#urlbar-search-mode-indicator, #identity-box, #identity-icon-box,
+.urlbarView, .urlbarView-body-inner, .urlbarView-row-inner,
+#navigator-toolbox toolbarbutton, #sidebar-main toolbarbutton {
+  border-radius: 0 !important;
+}
+#urlbar[focused] #urlbar-background,
+#urlbar[focused] > .urlbar-input-container,
+#searchbar:focus-within {
+  border-color: #a0a0a0 !important;
+  outline-color: #a0a0a0 !important;
+  box-shadow: none !important;
+}
+/* Set variables on the urlbar itself, where Firefox defines them. */
+#urlbar, #searchbar {
+  --urlbar-border-radius: 0px !important;
+  --urlbarview-border-radius: 0px !important;
+  --urlbar-background-border-radius: 0px !important;
+  --urlbar-background-border-top-radius-open: 0px !important;
+  --toolbar-field-border-color-focus: #a0a0a0 !important;
+  --focus-outline-color: #a0a0a0 !important;
+  --urlbar-background-color: #1e1e1e !important;
+  --urlbar-background-color-focus: #242424 !important;
+}
+.urlbar-searchmode-switcher, .urlbar-searchmode-switcher-button,
+.urlbar-icon, .urlbar-page-action, .toolbarbutton-1 {
+  border-radius: 0 !important;
+}

@@ -1,0 +1,155 @@
+#!/usr/bin/env python3
+"""Local application, file and shortcut search for the T480 Quickshell panels."""
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import shlex
+import subprocess
+import sys
+import tempfile
+
+import gi
+gi.require_version('Gio','2.0')
+from gi.repository import Gio
+
+HOME=Path.home()
+CACHE=Path(os.environ.get('XDG_CACHE_HOME',str(HOME/'.cache'))) / 't480-search'
+INDEX=CACHE/'files.json'
+MAX_FILES=30000
+SKIP={'.git','.cache','.codex','node_modules','__pycache__','.venv','venv','target','build','dist','Downloads/Trash'}
+BUILTINS = {
+    'builtin:terminal': ('Terminal', 'Open a terminal', ['st']),
+    'builtin:vis': ('Vis', 'Code editor', ['st', '-e', 'vis']),
+    'builtin:wifi': ('Wi-Fi', 'Open Wifitui', ['t480-tui', 'wifi']),
+    'builtin:bluetooth': ('Bluetooth', 'Open Bluetui', ['t480-tui', 'bluetooth']),
+}
+BUILTIN_REQUIREMENTS = {'builtin:vis': 'vis', 'builtin:wifi': 'wifitui', 'builtin:bluetooth': 'bluetui'}
+KEYS=[
+ ('Super+Space','Spotlight: search applications and files'),('Super+K','Search keyboard shortcuts'),
+ ('Super+Return','Open terminal'),('Super+P','Open controls'),('Super+E','Open file manager'),
+ ('Super+Shift+B','Open LibreWolf'),('Super+Shift+C','Open ChatGPT'),('Super+Shift+S','Open LocalSend'),
+ ('Super+Shift+W','Open Wi-Fi'),('Super+Shift+N','Open Bluetooth'),('Super+Shift+T','Open system monitor'),
+ ('Super+Shift+V','Open clipboard history'),('Super+A','Select all'),('Super+C','Copy'),('Super+V','Paste'),
+ ('Super+H / J / L','Focus left / down / right'),('Super+Up','Focus up'),
+ ('Super+Shift+H / J / K / L','Move focused window left / down / up / right'),
+ ('Super+Minus / Equal','Resize focused window'),('Super+T','Use tiling layout'),('Super+F','Toggle floating'),
+ ('Super+Shift+F','Toggle fullscreen'),('Super+M','Use monocle layout'),('Super+Shift+Space','Toggle floating'),
+ ('Super+Z','Move window to master'),('Super+I / D','Increase / decrease master count'),('Super+B','Toggle bar'),
+ ('Super+1–5','Switch workspace'),('Super+Shift+1–5','Move window to workspace'),
+ ('Super+Ctrl+1–5','Toggle workspace visibility'),('Super+Ctrl+Shift+1–5','Toggle window workspace'),
+ ('Super+0','View all workspaces'),('Super+Shift+0','Assign window to all workspaces'),('Super+Tab','Previous workspace'),
+ ('Super+Comma / Period','Focus previous / next monitor'),('Super+Shift+Comma / Period','Move window to previous / next monitor'),
+ ('Super+Q','Close focused window'),('Super+Shift+R','Reload dwm and shell'),('Super+Shift+Q','Exit desktop session'),
+ ('Print','Capture window to clipboard'),('Super+Print','Capture screen to clipboard'),
+ ('F1 / F2 / F3','Mute / lower / raise volume'),('F5 / F6','Lower / raise brightness'),
+ ('Ctrl+A then | / -','tmux split vertically / horizontally'),('Ctrl+A then c','tmux new window'),
+ ('Ctrl+A then h / l','tmux previous / next window'),('Ctrl+A then Space','tmux last window'),
+ ('Ctrl+A then [','tmux copy mode; v select and y copy'),('Super+Shift+C / V','Terminal copy / paste'),
+ ('Vis y','Yank text to clipboard'),('Vis p','Paste after cursor'),
+]
+
+def app_entries():
+    entries=[]
+    for app in Gio.AppInfo.get_all():
+        ident=app.get_id()
+        if not ident or not app.should_show(): continue
+        name=app.get_display_name() or app.get_name() or ident
+        comment=app.get_description() or 'Application'
+        entries.append({'kind':'app','name':name,'detail':comment,'target':ident})
+    for ident,(name,description,command) in BUILTINS.items():
+        if shutil.which(command[0]) and shutil.which(BUILTIN_REQUIREMENTS.get(ident, command[0])):
+            entries.append({'kind':'app','name':name,'detail':description,'target':ident})
+    return sorted(entries,key=lambda e:e['name'].casefold())
+
+def scan_files():
+    entries=[]
+    for parent,dirs,files in os.walk(HOME,topdown=True,followlinks=False,onerror=lambda e:None):
+        dirs[:]=sorted((d for d in dirs if d not in SKIP and not (parent==str(HOME/'.config') and d in ('Codex','librewolf'))), key=lambda d:(d.startswith('.'),d.casefold()))
+        for name in dirs+sorted(files):
+            path=Path(parent)/name
+            entries.append({'kind':'folder' if path.is_dir() else 'file','name':name,'detail':str(path.parent),'target':str(path)})
+            if len(entries)>=MAX_FILES: break
+        if len(entries)>=MAX_FILES:break
+    CACHE.mkdir(parents=True,exist_ok=True,mode=0o700)
+    fd,tmp=tempfile.mkstemp(prefix='.files-',dir=CACHE)
+    try:
+        with os.fdopen(fd,'w',encoding='utf-8') as f:json.dump(entries,f,ensure_ascii=True)
+        os.replace(tmp,INDEX)
+    finally:
+        if os.path.exists(tmp):os.unlink(tmp)
+    return {'count':len(entries),'limited':len(entries)>=MAX_FILES}
+
+def file_entries():
+    try:
+        with INDEX.open(encoding='utf-8') as f:return json.load(f)
+    except (OSError,ValueError):return []
+
+def clean(value):return re.sub(r'[\x00-\x1f\x7f]',' ',value)
+
+def search(mode,query):
+    if mode=='keys':entries=[{'kind':'key','name':k,'detail':v,'target':''} for k,v in KEYS]
+    elif mode=='launcher':entries=app_entries()+(file_entries() if query.strip() else [])
+    else:raise ValueError('unknown search mode')
+    if not query.strip():return entries[:100]
+    records=[f"{i}\t{clean(e['name'])} {clean(e['detail'])}" for i,e in enumerate(entries)]
+    cmd=['fzf','--filter='+query,'--read0','--print0','--delimiter=\t','--nth=2..']
+    result=subprocess.run(cmd,input=('\0'.join(records)+'\0').encode('utf-8',errors='replace'),stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,check=False)
+    if result.returncode not in (0,1):raise RuntimeError('fzf search failed')
+    chosen=[]
+    for record in result.stdout.split(b'\0'):
+        if not record:continue
+        try:i=int(record.split(b'\t',1)[0]);chosen.append(entries[i])
+        except (ValueError,IndexError):continue
+        if len(chosen)>=100:break
+    return chosen
+
+def terminal_exec(app):
+    raw=app.get_string('Exec') or ''
+    argv=shlex.split(raw)
+    out=[]
+    for token in argv:
+        if token in ('%f','%F','%u','%U','%i'):continue
+        token=token.replace('%%','\0').replace('%c',app.get_name() or '').replace('%k',app.get_filename() or '')
+        token=re.sub(r'%[fFuUi]','',token).replace('\0','%')
+        if token:out.append(token)
+    return out
+
+def launch(kind,target):
+    if kind=='app':
+        if target in BUILTINS:
+            command=BUILTINS[target][2]
+            if not shutil.which(command[0]) or not shutil.which(BUILTIN_REQUIREMENTS.get(target, command[0])):raise ValueError('application is unavailable')
+            subprocess.Popen(command,start_new_session=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+            return {'ok':True}
+        app=Gio.DesktopAppInfo.new(target)
+        if not app or not app.should_show():raise ValueError('application is unavailable')
+        if app.get_boolean('Terminal'):
+            argv=terminal_exec(app)
+            if not argv:raise ValueError('application has no command')
+            subprocess.Popen(['st','-e',*argv],start_new_session=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        else:subprocess.Popen(['gtk-launch',target],start_new_session=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    elif kind in ('file','folder'):
+        p=Path(target)
+        if not p.exists() or not p.is_relative_to(HOME):raise ValueError('file is unavailable')
+        command=['xdg-open',str(p)]
+        if kind=='file':
+            content_type,_=Gio.content_type_guess(p.name,None)
+            handler=Gio.AppInfo.get_default_for_type(content_type,False) if content_type else None
+            code_suffixes={'.json','.toml','.yaml','.yml','.ini','.conf','.sh','.bash','.zsh','.lua','.qml','.js','.ts','.rs','.c','.h','.cpp','.py','.md','.txt','.css','.html','.xml'}
+            if not handler and ((content_type or '').startswith('text/') or p.suffix.lower() in code_suffixes):
+                command=['st','-e','vis',str(p)]
+        subprocess.Popen(command,start_new_session=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+    else:raise ValueError('unsupported result')
+    return {'ok':True}
+
+def main(args):
+    if args==['scan']:result=scan_files()
+    elif len(args)==3 and args[0]=='search':result=search(args[1],args[2])
+    elif len(args)==3 and args[0]=='launch':result=launch(args[1],args[2])
+    else:raise ValueError('usage: t480-search scan | search MODE QUERY | launch KIND TARGET')
+    print(json.dumps(result,ensure_ascii=True))
+if __name__=='__main__':
+    try:main(sys.argv[1:])
+    except (OSError,ValueError,RuntimeError) as e:print(json.dumps({'error':str(e)}));sys.exit(1)

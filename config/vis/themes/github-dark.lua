@@ -1,0 +1,41 @@
+-- A poor imitation of the original Vim colourscheme which can be
+-- found at https://github.com/jnurmine/Zenburn
+
+local lexers = vis.lexers
+
+lexers.STYLE_DEFAULT = 'fore:#e0e0e0,back:#0b0b0b'
+lexers.STYLE_NOTHING = ''
+lexers.STYLE_CLASS = 'fore:#ffa657'
+lexers.STYLE_COMMENT = 'fore:#8b949e,italics'
+lexers.STYLE_CONSTANT = 'fore:#79c0ff'
+lexers.STYLE_DEFINITION = 'fore:#d2a8ff'
+lexers.STYLE_ERROR = 'fore:#ffa198,bold'
+lexers.STYLE_FUNCTION = 'fore:#d2a8ff'
+lexers.STYLE_KEYWORD = 'fore:#ff7b72'
+lexers.STYLE_LABEL = 'fore:#7ee787'
+lexers.STYLE_NUMBER = 'fore:#79c0ff'
+lexers.STYLE_OPERATOR = 'fore:#ff7b72'
+lexers.STYLE_REGEX = 'fore:#f0dfaf'
+lexers.STYLE_STRING = 'fore:#a5d6ff'
+lexers.STYLE_PREPROCESSOR = 'fore:#ffd7af,bold'
+lexers.STYLE_TAG = 'fore:#d7afaf,bold'
+lexers.STYLE_TYPE = 'fore:#ffa657'
+lexers.STYLE_VARIABLE = 'fore:#ffa657'
+lexers.STYLE_WHITESPACE = ''
+lexers.STYLE_EMBEDDED = 'fore:#cc9393'
+lexers.STYLE_IDENTIFIER = ''
+
+lexers.STYLE_LINENUMBER = 'fore:#747474'
+lexers.STYLE_LINENUMBER_CURSOR = 'fore:#e0e0e0,bold'
+lexers.STYLE_CURSOR = 'back:#747474'
+lexers.STYLE_CURSOR_PRIMARY = 'fore:#0b0b0b,back:#e0e0e0'
+lexers.STYLE_CURSOR_LINE = 'back:#1e1e1e'
+lexers.STYLE_COLOR_COLUMN = 'back:#1e1e1e'
+lexers.STYLE_SELECTION = 'back:#424242'
+lexers.STYLE_STATUS = 'fore:#a0a0a0,back:#1e1e1e'
+lexers.STYLE_STATUS_FOCUSED = 'fore:#e0e0e0,back:#353535,bold'
+lexers.STYLE_SEPARATOR = 'fore:#353535'
+lexers.STYLE_INFO = ''
+lexers.STYLE_EOF = 'fore:#555555'
+
+lexers.STYLE_ATTRIBUTE = 'fore:#79c0ff'

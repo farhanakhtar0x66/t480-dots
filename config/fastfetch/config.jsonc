@@ -1,0 +1,35 @@
+{"logo": {
+    "source": "Gentoo",
+    "padding": {
+	"right": 2,
+	"left": 2,
+    }
+  },
+  "display": {
+    "size": { "binaryPrefix": "JEDEC" },
+    "separator": "  ",
+    "color": {
+      "keys": "white",
+      "title": "white"
+    }
+  },
+  "modules": [
+    "title",
+    "separator",
+    "os",
+    "host",
+    "kernel",
+    "uptime",
+    "shell",
+    "wm",
+    "font",
+    "terminal",
+    "cpu",
+    { "type": "gpu", "format": "{name}" },
+    "memory",
+    "swap",
+    "disk",
+    "separator",
+    "battery",
+  ]
+}

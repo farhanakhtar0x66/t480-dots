@@ -1,0 +1,7 @@
+! 125% at native panel resolution (96 * 1.25).
+Xft.dpi: 120
+Xft.antialias: 1
+Xft.hinting: 1
+Xft.hintstyle: hintslight
+! The panel does not report its subpixel order; avoid coloured fringes.
+Xft.rgba: none

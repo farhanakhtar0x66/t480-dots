@@ -1,0 +1,67 @@
+# /etc/skel/.bashrc
+#
+# This file is sourced by all *interactive* bash shells on startup,
+# including some apparently interactive shells such as scp and rcp
+# that can't tolerate any output.  So make sure this doesn't display
+# anything or bad things will happen !
+
+
+# Test for an interactive shell.  There is no need to set anything
+# past this point for scp and rcp, and it's important to refrain from
+# outputting anything in those cases.
+if [[ $- != *i* ]] ; then
+	# Shell is non-interactive.  Be done now!
+	return
+fi
+
+
+# Put your fun stuff here.
+
+# User-local tools and a separate tmux session for each new st window.
+case ":$PATH:" in *":$HOME/.local/bin:"*) ;; *) export PATH="$HOME/.local/bin:$PATH" ;; esac
+if [[ -t 0 && -t 1 && -z "${TMUX:-}" && "${TERM:-}" == st* ]] && command -v tmux >/dev/null 2>&1; then
+    exec tmux new-session
+fi
+
+# History and editor
+HISTSIZE=10000
+HISTFILESIZE=10000
+HISTCONTROL=ignoreboth
+shopt -s histappend checkwinsize
+if command -v nvim >/dev/null 2>&1; then
+    export EDITOR=nvim
+    alias vi=nvim vim=nvim
+fi
+
+# XDG paths for npm
+export NPM_CONFIG_USERCONFIG="$HOME/.config/npm/npmrc"
+export NPM_CONFIG_CACHE="$HOME/.cache/npm"
+
+# Navigation and optional tools
+alias vi='vis'
+alias vim='vis'
+alias ..='cd ..'
+alias ...='cd ../..'
+alias reload='source ~/.bashrc'
+alias bashconfig='${EDITOR:-vi} ~/.bashrc'
+if command -v bat >/dev/null 2>&1; then
+    alias cat='bat --paging=never --style=plain'
+    alias bcat=bat
+fi
+command -v lazygit >/dev/null 2>&1 && alias lg=lazygit
+if command -v eza >/dev/null 2>&1; then
+    alias ls='eza --icons=always --group-directories-first'
+    alias l='eza -1 --icons=always --group-directories-first'
+    alias ll="eza -la --icons=always --group-directories-first --git --no-permissions --no-user --time-style=relative --ignore-glob='.DS_Store|.CFUserTextEncoding|.zshenv|.homebrew|.gemini'"
+    alias la='eza -la --icons=always --group-directories-first --git --time-style=relative'
+    alias lt='eza --tree --level=2 --icons=always'
+fi
+
+# Enable integrations only when installed.
+[[ -r /usr/share/bash-completion/bash_completion ]] && source /usr/share/bash-completion/bash_completion
+command -v fzf >/dev/null 2>&1 && eval "$(fzf --bash)"
+command -v zoxide >/dev/null 2>&1 && eval "$(zoxide init bash)"
+[[ -t 1 ]] && command -v fastfetch >/dev/null 2>&1 && fastfetch
+
+# A compact two-line prompt with high-contrast accents.
+PS1='\[\e[0;37m\]\u@\h \w ❯ \[\e[0m\]'

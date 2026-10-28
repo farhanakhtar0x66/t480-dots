@@ -1,0 +1,20 @@
+#!/bin/sh
+# Small, fixed, floating terminals; no second menu framework or persistent process.
+set -eu
+case "${1:-}" in
+    wifi) title='Wi-Fi'; cols=78; rows=24; set -- wifitui ;;
+    bluetooth) title='Bluetooth'; cols=78; rows=24; set -- bluetui ;;
+    monitor) title='System monitor'; cols=108; rows=32; set -- btop ;;
+    *) printf 'Usage: t480-tui wifi|bluetooth|monitor\n' >&2; exit 2 ;;
+esac
+# Newt's named ANSI colors inherit the st palette; no absolute RGB workaround.
+export NEWT_COLORS='root=lightgray,black window=lightgray,black border=gray,black shadow=black,black title=white,black button=black,lightgray actbutton=black,white checkbox=lightgray,black actcheckbox=black,white entry=white,gray label=lightgray,black listbox=lightgray,black actlistbox=black,white textbox=lightgray,black acttextbox=black,white helpline=gray,black roottext=lightgray,black emptyscale=gray,black fullscale=white,black disentry=gray,black compactbutton=black,lightgray actsellistbox=black,white sellistbox=white,gray'
+resolution=$(xrandr --current | sed -n '1s/.*current \([0-9]*\) x \([0-9]*\),.*/\1 \2/p')
+read -r screen_w screen_h <<EOF
+${resolution:-1920 1080}
+EOF
+pos_x=$(( (screen_w - cols * 10) / 2 ))
+pos_y=$(( (screen_h - rows * 20) / 2 ))
+test "$pos_x" -ge 0 || pos_x=0
+test "$pos_y" -ge 28 || pos_y=28
+exec st -i -c T480Popup -t "$title" -g "${cols}x${rows}+${pos_x}+${pos_y}" -e "$@"

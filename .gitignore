@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+*.o
+/src/dwm/dwm
+/src/st/st
+/src/desktop-tools/t480-keys
+/src/desktop-tools/t480-screenshot
+/src/desktop-tools/t480-touchpad

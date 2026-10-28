@@ -1,0 +1,316 @@
+#!/usr/bin/python3
+"""Bounded session-only X11 clipboard history and its local socket client."""
+import atexit
+import fcntl
+import hashlib
+import json
+import os
+from pathlib import Path
+import signal
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+
+
+class History:
+    def __init__(self, directory, limit=20, budget=32*1024*1024, item_limit=16*1024*1024):
+        self.directory = directory
+        self.limit, self.budget, self.item_limit = limit, budget, item_limit
+        self.items = []
+
+    def add(self, kind, data, width=0, height=0):
+        if kind not in ('text', 'image') or not data or len(data) > self.item_limit:
+            return None
+        if kind == 'text' and len(data) > 1024*1024:
+            return None
+        key = hashlib.sha256(kind.encode()+b'\0'+data).hexdigest()
+        self.items = [item for item in self.items if item['id'] != key]
+        self.items.insert(0, dict(id=key, kind=kind, data=data, width=width, height=height))
+        if kind == 'image':
+            path = self.directory/(key+'.png')
+            path.write_bytes(data)
+            path.chmod(0o600)
+        while len(self.items) > self.limit or sum(len(i['data']) for i in self.items) > self.budget:
+            old = self.items.pop()
+            if old['kind'] == 'image':
+                (self.directory/(old['id']+'.png')).unlink(missing_ok=True)
+        self.publish()
+        return key
+
+    def metadata(self):
+        return [dict(id=i['id'], kind=i['kind'],
+                     text=i['data'].decode('utf-8', errors='replace')[:200] if i['kind']=='text' else '',
+                     image=str(self.directory/(i['id']+'.png')) if i['kind']=='image' else '',
+                     width=i['width'], height=i['height']) for i in self.items]
+
+    def publish(self):
+        path = self.directory/'index.tmp'
+        path.write_text(json.dumps(self.metadata(), ensure_ascii=False))
+        path.chmod(0o600)
+        path.replace(self.directory/'index.json')
+
+
+def validate_image(data):
+    # Read dimensions without allocating the decoded image.
+    import io
+    from PIL import Image
+    if len(data) > 16*1024*1024:
+        raise ValueError('image exceeds 16 MiB')
+    with Image.open(io.BytesIO(data)) as image:
+        width, height = image.size
+    if width <= 0 or height <= 0 or width*height > 32*1024*1024:
+        raise ValueError('image dimensions exceed the limit')
+    return width, height
+
+
+def runtime():
+    root = Path(os.environ.get('XDG_RUNTIME_DIR', '/tmp'))
+    path = root/('t480-clipboard' if 'XDG_RUNTIME_DIR' in os.environ else f't480-clipboard-{os.getuid()}')
+    path.mkdir(mode=0o700, exist_ok=True)
+    if path.is_symlink() or path.stat().st_uid != os.getuid():
+        raise RuntimeError('clipboard runtime directory is not owned by this user')
+    path.chmod(0o700)
+    return path
+
+
+def request(command):
+    with socket.socket(socket.AF_UNIX) as client:
+        client.settimeout(3)
+        client.connect(str(runtime()/'socket'))
+        client.sendall(json.dumps(command).encode()+b'\n')
+        response = client.makefile('rb').readline(65536)
+    data = json.loads(response)
+    if 'error' in data:
+        raise RuntimeError(data['error'])
+    return data
+
+
+def session_parent():
+    pid = os.getppid()
+    while pid > 1:
+        try:
+            if Path(f'/proc/{pid}/comm').read_text().strip() == 't480-session':
+                return pid
+            info = Path(f'/proc/{pid}/status').read_text().splitlines()
+            pid = int(next(line.split()[1] for line in info if line.startswith('PPid:')))
+        except (OSError, StopIteration):
+            break
+    return 0
+
+
+def ensure():
+    try:
+        request({'op':'ping','parent':session_parent()})
+        return
+    except (OSError, ValueError, RuntimeError):
+        pass
+    log = open(runtime()/'daemon.log','ab', buffering=0)
+    subprocess.Popen([sys.executable, str(Path(__file__).resolve()), 'serve', str(session_parent())],
+                     stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
+    log.close()
+    for _ in range(60):
+        try:
+            request({'op':'ping','parent':session_parent()})
+            return
+        except (OSError, ValueError, RuntimeError):
+            time.sleep(.05)
+    raise RuntimeError('clipboard service did not start')
+
+
+def serve(parent):
+    import gi
+    gi.require_version('Gtk','3.0')
+    gi.require_version('Gdk','3.0')
+    from gi.repository import Gtk, Gdk, GdkPixbuf, GLib, GLibUnix
+    directory = runtime()
+    lock = open(directory/'lock','a')
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX|fcntl.LOCK_NB)
+    except BlockingIOError:
+        return
+    # Never read history left by a previous process or login.
+    for path in directory.iterdir():
+        if path.name not in ('lock','daemon.log') and not path.is_dir():
+            path.unlink(missing_ok=True)
+    history = History(directory)
+    history.publish()
+    clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+    generation = 0
+
+    def own_selection():
+        owner = Gdk.selection_owner_get(Gdk.SELECTION_CLIPBOARD)
+        return owner is not None and owner.get_window_type() != Gdk.WindowType.FOREIGN
+
+    def receive_text(clip, text, serial):
+        if serial == generation and text:
+            history.add('text', text.encode())
+            # Observe ordinary copies without replacing HTML, file or app-specific targets.
+
+    image_targets = ('image/png', 'image/jpeg', 'image/bmp', 'image/gif')
+
+    def request_image(clip, serial, index=0):
+        if serial != generation:
+            return
+        if index == len(image_targets):
+            clip.request_text(receive_text, serial)
+        else:
+            clip.request_contents(Gdk.Atom.intern(image_targets[index], False), receive_image, (serial,index))
+
+    def receive_image(clip, selection, details):
+        serial, index = details
+        if serial != generation:
+            return
+        length = selection.get_length()
+        if length <= 0:
+            request_image(clip, serial, index+1)
+            return
+        if length > 16*1024*1024:
+            return
+        data = selection.get_data()
+        try:
+            validate_image(data)
+            loader = GdkPixbuf.PixbufLoader()
+            loader.write(data)
+            loader.close()
+            image = loader.get_pixbuf()
+            ok, encoded = image.save_to_bufferv('png', [], [])
+            if ok:
+                history.add('image', bytes(encoded), image.get_width(), image.get_height())
+        except (OSError, ValueError, GLib.Error):
+            return
+
+    def changed(clip, event=None):
+        nonlocal generation
+        generation += 1
+        if own_selection():
+            return
+        request_image(clip, generation)
+
+    def set_item(item):
+        if item['kind']=='text':
+            clipboard.set_text(item['data'].decode('utf-8'), -1)
+        else:
+            loader = GdkPixbuf.PixbufLoader.new_with_type('png')
+            loader.write(item['data'])
+            loader.close()
+            clipboard.set_image(loader.get_pixbuf())
+        history.add(item['kind'],item['data'],item['width'],item['height'])
+
+    listener = socket.socket(socket.AF_UNIX)
+    listener.bind(str(directory/'socket'))
+    listener.listen(8)
+    listener.setblocking(False)
+
+    def incoming(source, condition):
+        nonlocal parent
+        connection, _ = listener.accept()
+        connection.settimeout(1)
+        try:
+            message = json.loads(connection.makefile('rb').readline(8192))
+            op = message.get('op')
+            reply = {'ok':True}
+            if op=='select':
+                item = next((i for i in history.items if i['id']==message.get('id')),None)
+                if item is None:
+                    raise ValueError('clipboard item expired')
+                set_item(item)
+            elif op=='capture':
+                path = Path(message['path'])
+                if path.parent != directory or path.is_symlink() or path.stat().st_size > history.item_limit:
+                    raise ValueError('invalid capture')
+                validate_image(path.read_bytes())
+                image = GdkPixbuf.Pixbuf.new_from_file(str(path))
+                if image.get_width()*image.get_height() > 32*1024*1024:
+                    raise ValueError('image is too large')
+                ok, data = image.save_to_bufferv('png',[],[])
+                key = history.add('image',bytes(data),image.get_width(),image.get_height()) if ok else None
+                if key is None:
+                    raise ValueError('image is too large')
+                set_item(history.items[0])
+            elif op=='stats':
+                reply = {'count':len(history.items), 'items':[{'id':i['id'],'kind':i['kind']} for i in history.items]}
+            elif op=='clear':
+                history.items=[]
+                for path in directory.glob('*.png'): path.unlink(missing_ok=True)
+                history.publish()
+            elif op=='stop':
+                GLib.idle_add(Gtk.main_quit)
+            elif op=='ping':
+                candidate=int(message.get('parent',0))
+                if candidate and Path(f'/proc/{candidate}/comm').read_text().strip()=='t480-session':
+                    parent=candidate
+            else:
+                raise ValueError('unknown command')
+        except Exception as error:
+            reply = {'error':str(error)}
+        try:
+            connection.sendall(json.dumps(reply).encode()+b'\n')
+        except OSError:
+            pass  # A cancelled client must not remove the GLib listener watch.
+        finally:
+            connection.close()
+        return True
+
+    def cleanup():
+        listener.close()
+        for path in directory.iterdir():
+            if path.name not in ('lock','daemon.log') and not path.is_dir():
+                path.unlink(missing_ok=True)
+    atexit.register(cleanup)
+    for sig in (signal.SIGINT,signal.SIGTERM):
+        GLibUnix.signal_add(GLib.PRIORITY_DEFAULT,sig,lambda: (Gtk.main_quit(),False)[1])
+    def alive():
+        if parent and not Path(f'/proc/{parent}').exists():
+            Gtk.main_quit()
+            return False
+        return True
+    GLib.timeout_add_seconds(2,alive)
+    GLib.io_add_watch(listener,GLib.IO_IN,incoming)
+    clipboard.connect('owner-change',changed)
+    changed(clipboard)
+    Gtk.main()
+
+
+def main():
+    os.umask(0o077)
+    args=sys.argv[1:]
+    if not args: raise ValueError('expected ensure, serve, capture, select, paste, stats, clear or stop')
+    if args[0]=='serve':
+        serve(int(args[1]) if len(args)>1 else 0)
+        return
+    if args[0]=='ensure':
+        ensure()
+        return
+    if args[0]=='stop':
+        try: request({'op':'stop'})
+        except OSError: pass
+        return
+    ensure()
+    if args[0]=='location':
+        print(runtime())
+    elif args[0]=='capture':
+        data=sys.stdin.buffer.read(16*1024*1024+1)
+        if not data: return  # Cancelled screenshot leaves the clipboard unchanged.
+        if len(data)>16*1024*1024: raise ValueError('capture exceeds 16 MiB')
+        fd,name=tempfile.mkstemp(prefix='capture-',suffix='.png',dir=runtime())
+        try:
+            with os.fdopen(fd,'wb') as stream: stream.write(data)
+            request({'op':'capture','path':name})
+        finally:
+            Path(name).unlink(missing_ok=True)
+    elif args[0] in ('select','paste') and len(args)>=2:
+        request({'op':'select','id':args[1]})
+        if args[0]=='paste' and len(args)==3:
+            subprocess.run(['t480-keys','paste-to',args[2]],check=True)
+    elif args[0] in ('stats','clear'):
+        print(json.dumps(request({'op':args[0]})))
+    else:
+        raise ValueError('invalid clipboard command')
+
+if __name__=='__main__':
+    try: main()
+    except (OSError,ValueError,RuntimeError,subprocess.CalledProcessError) as error:
+        print(f'Clipboard: {error}',file=sys.stderr)
+        raise SystemExit(1)
