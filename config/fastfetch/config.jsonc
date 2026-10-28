@@ -22,7 +22,7 @@
     "uptime",
     "shell",
     "wm",
-    "font",
+    { "type": "font", "format": "{font3:23}" },
     "terminal",
     "cpu",
     { "type": "gpu", "format": "{name}" },
