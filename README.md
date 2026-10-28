@@ -1,10 +1,31 @@
 # T480 dotfiles
 
-This is the current Gentoo T480 configuration: edited dwm and st source, Bash and tmux, fastfetch, btop, X startup, Quickshell, GTK, PCManFM, desktop helpers and the Nerd Font. The config files are copied from the active setup; edit the files here and reinstall after making changes. The small helpers are rebuilt from source.
+A monochrome, keyboard-driven Gentoo desktop for the ThinkPad T480. Built around a customized **dwm** and **st**, with Quickshell utilities, a practical terminal workflow, and a compact status bar.
 
-## Install on a fresh system
+![Gentoo system information in the terminal](screenshots/terminal.png)
 
-On an x86-64 Gentoo installation, install Git, sudo, a compiler and make, and as your normal user run:
+<sub>Terminal and Fastfetch. This screenshot predates the shortened font label.</sub>
+
+![Monochrome dwm status bar](screenshots/bar.png)
+
+<sub>The current dwm bar, with workspace icons and live system status.</sub>
+
+## The setup
+
+| Component | Configuration |
+| --- | --- |
+| Window manager | Patched dwm with gaps, directional focus, floating and fullscreen windows |
+| Terminal | st with JetBrainsMono Nerd Font and Noto Color Emoji fallback |
+| Desktop utilities | Quickshell controls, clipboard history, app and file search, and shortcut guide |
+| Shell and editor | Bash, tmux, Vis, fzf, zoxide, eza and bat |
+| System tools | Fastfetch, btop, Wifitui and Bluetui |
+| Desktop theme | Black and gray GTK, PCManFM and LibreWolf styling; colorful terminal and editor syntax |
+
+The bar shows workspace icons, the focused window, Wi-Fi throughput, Bluetooth, volume, battery and time. Click Wi-Fi or Bluetooth to open their terminal interfaces; the other status items open the controls panel.
+
+## Installation
+
+Designed for **x86-64 Gentoo with OpenRC**. Start with a working Gentoo installation, network access, Git, sudo, a compiler and make. Run the installer as your normal user:
 
 ```sh
 git clone https://github.com/farhanakhtar0x66/t480-dots.git ~/Projects/dotfiles
@@ -12,26 +33,55 @@ cd ~/Projects/dotfiles
 ./install.sh
 ```
 
-The script needs Internet access and sudo. It enables the GURU repository if needed, accepts the `~amd64` keyword for Quickshell, installs the required Gentoo packages, builds dwm/st and the desktop helpers, installs the included font, and downloads pinned fzf, zoxide, eza, bat, Bluetui and Wifitui releases after checking their SHA-256 hashes. Existing files replaced by the installer are saved under `~/.local/state/dotfiles/`. The `--skip-system` option skips package installation and is useful only when dependencies are already installed.
+The installer enables GURU if needed, accepts the Quickshell `~amd64` keyword, installs Gentoo dependencies, builds dwm, st and the desktop helpers, and installs the included fonts and configuration. It downloads pinned releases of fzf, zoxide, eza, bat, Bluetui and Wifitui and verifies their SHA-256 hashes. Replaced files are saved under `~/.local/state/dotfiles/`.
 
-Start a **new login shell** and run `startx` after installation. Bash sets `XINITRC` to `~/.config/X11/xinitrc`; tmux reads `~/.config/tmux/tmux.conf`. The installer adjusts btop's stored theme path for the destination home directory, leaving the project copy unchanged.
+After installation, start a **new login shell** and run `startx`. Bash sets `XINITRC` to `~/.config/X11/xinitrc`.
 
-This setup is made for the ThinkPad T480 and Gentoo/OpenRC. The script does not configure kernel options, a display manager, network/audio/Bluetooth services, user groups, or hardware permissions. Optional applications bound to shortcuts (LibreWolf, ChatGPT and LocalSend) have their own repositories and installation requirements and are not installed by this script. A working Gentoo base, network access and compatible package repository/USE settings are still required; no fresh-machine installation has been tested. Portage may ask for further keyword, license or USE decisions on another system.
+> This is a personal T480 setup, not a distribution installer. A fresh-machine installation has not been tested. The script does not configure kernel options, a display manager, services, user groups or hardware permissions. Portage may require additional keyword, license or USE choices. LibreWolf, ChatGPT and LocalSend are optional and are not installed by the script.
 
-Keep a copy of this repository somewhere outside the computer before reinstalling Linux. It does not contain your personal data, shell history, credentials, or application accounts.
+To skip system package installation when all dependencies are already present, run `./install.sh --skip-system`.
 
-## Theme and clipboard
+## Key bindings
 
-The desktop uses a monochrome black-and-gray palette; terminal and Vis syntax retain the GitHub Dark coding colors. Vis enables line numbers, current-line highlighting, and a colorful `github-dark` syntax theme. Normal and visual `y` send the default yank to the X clipboard; explicit named registers still work. In tmux copy mode, `y` and mouse selections copy through `xclip`. Mouse selection is handled by tmux; use Shift while dragging to select through st itself.
+`Super` is the Windows key. Press **Super + K** for the searchable shortcut guide.
 
-The installer applies the LibreWolf styles if exactly one `~/.config/librewolf/librewolf/*.default-release` profile exists. Otherwise, after starting LibreWolf once, copy `browser/chrome/userChrome.css` and `userContent.css` into your chosen profile's `chrome/` directory and enable `toolkit.legacyUserProfileCustomizations.stylesheets` in `about:config` if necessary. Restart LibreWolf to load its chrome styles. The styles cover the browser chrome and internal pages, not arbitrary websites.
+| Shortcut | Action |
+| --- | --- |
+| Super + Space | Search applications and files |
+| Super + K | Search keyboard shortcuts |
+| Super + Enter | Open a terminal |
+| Super + E | Open the file manager |
+| Super + 1–5 | Switch workspace |
+| Super + Shift + 1–5 | Move the focused window to a workspace |
+| Super + H / J / Up / L | Focus a window in that direction |
+| Super + Shift + H / J / K / L | Move the focused window in that direction |
+| Super + F | Toggle floating |
+| Super + Shift + F | Toggle fullscreen |
+| Super + T | Select the tiled layout |
+| Super + Shift + R | Reload dwm |
+| Print / Super + Print | Capture a selected window / the screen |
+| Super + Shift + V | Open clipboard history |
 
-## Search panels
+The search panels support arrow keys, Enter and Escape. File search indexes up to 30,000 home-directory entries in a user-only cache under `~/.cache/t480-search`, excluding common caches, build directories and browser/Codex profile data.
 
-Super+Space opens Spotlight for installed applications and local files. Super+K opens the searchable shortcut guide. Use the arrow keys and Enter to open a result, or Escape to close. Super+Up focuses the window above. The previous-layout control remains available by clicking the layout symbol in the bar.
+## Clipboard and browser
 
-File search creates a local, user-only cache under `~/.cache/t480-search` when Spotlight opens. It searches your home directory, skips common cache/build directories and browser/Codex profile data, and indexes up to 30,000 entries. The index refreshes each time Spotlight opens; installed desktop applications are refreshed on each search. Text and code files without a system default handler open in Vis.
+In Vis, normal and visual `y` send the default yank to the X clipboard. In tmux copy mode, `y` and mouse selections copy through `xclip`; hold Shift while dragging to select through st itself.
 
-## Bar
+The installer applies the LibreWolf styles when it finds exactly one `~/.config/librewolf/librewolf/*.default-release` profile. Otherwise, copy the files in [`browser/chrome/`](browser/chrome/) to the chosen profile's `chrome/` directory. Enable `toolkit.legacyUserProfileCustomizations.stylesheets` in `about:config` and restart LibreWolf. These styles cover browser chrome and internal pages, not arbitrary websites.
 
-The dwm bar uses a restrained monochrome workspace strip, a bordered focused-window title, and separated clickable status items. Quickshell supplies live status information. After rebuilding dwm, press Super+Shift+R to reload the window manager and apply the new bar.
+## Repository layout
+
+```text
+bin/          Session, search, clipboard and desktop helpers
+browser/      LibreWolf chrome and internal-page styles
+config/       Quickshell, Fastfetch, tmux, Vis, GTK and other settings
+fonts/        Nerd Fonts and emoji fallback, with their licenses
+icons/        Monochrome file-manager icons
+shell/        Bash configuration
+src/          Customized dwm and st, plus desktop helper sources
+screenshots/  Desktop previews
+install.sh    Gentoo installer
+```
+
+Configuration files are snapshots of the active setup. Edit them here and reinstall to apply changes. Hardware-specific settings, including the Wi-Fi interface, may need adjustment on another machine.
